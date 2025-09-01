@@ -1,0 +1,44 @@
+- name: Instalar Samba
+  apt:
+    name: samba
+    state: present
+    update_cache: yes
+
+- name: Crear grupo de desarrolladores
+  group:
+    name: "{{ grupo }}"
+    state: present
+
+- name: Crear usuario devuser1
+  user:
+    name: "{{ usuarios[0] }}"
+    shell: /usr/sbin/nologin
+    groups: "{{ grupo }}"
+    append: yes
+    state: present
+
+- name: Crear directorio compartido
+  file:
+    path: "{{ directorio_samba }}"
+    state: directory
+    owner: root
+    group: "{{ grupo }}"
+    mode: "2775"
+
+- name: Configurar Samba
+  blockinfile:
+    path: /etc/samba/smb.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    block: |
+      [Proyectos]
+      path = {{ directorio_samba }}
+      browsable = yes
+      read only = no
+      guest ok = no
+      create mask = 0664
+      directory mask = 2775
+      valid users = @{{ grupo }}
+  notify: restart smbd
+
+- name: Establecer contraseña Samba
+  ansible.builtin.shell: "(echo {{ contrasena_samba }}; echo {{ contrasena_samba }}) | smbpasswd -s -a {{ usuarios[0] }}"
